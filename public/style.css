@@ -1,0 +1,122 @@
+body {
+    font-family: Arial, sans-serif;
+    background-color: #363636;
+    margin: 0;
+    padding: 20px;
+    text-align: center;
+}
+
+.container {
+    display: flex;
+    max-width: 660px;
+    margin: 0 auto;
+    flex-direction: column;
+}
+
+.container * {
+    display: block;
+}
+
+h1 {
+    color: #ffffff;
+}
+
+#controls {
+    display: flex;
+    gap: 1em;
+    flex-wrap: wrap;
+    max-width: 660px;
+    justify-content: space-around;
+    width: 100%;
+}
+
+button {
+    width: 100%;
+    flex-basis: 90px;
+    font-size: 16px;
+    height: 45.4px;
+    cursor: pointer;
+    border: none;
+    border-radius: 5px;
+    background-color: #007BFF;
+    color: white;
+}
+
+button:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+}
+
+#remoteAudios {
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+#remoteAudios {
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.audio-container {
+    margin: 10px 0;
+    display: none;
+    align-items: center;
+}
+
+audio {
+    margin-right: 10px;
+}
+
+.username {
+    font-weight: bold;
+    margin-right: 10px;
+    color: #FFF;
+}
+
+ul {
+    list-style: none;
+    padding: 0;
+}
+.mic-activity {
+    width: 20px;
+    height: 20px;
+    background-color: #fff;
+    border-radius: 50%;
+    transition: transform 0.1s ease-in-out, background-color 0.1s ease-in-out;
+    margin-left: 10px;
+}
+
+#usernameInput {
+    padding: 0.3em;
+    width: 400px;
+    font-size: 24px;
+    border-radius: 5px;
+    border: 1px solid #FFF;
+}
+
+#userList li {
+    display: flex;
+    justify-content: space-between;
+    padding: 1em;
+    border-bottom: 1px solid #FFF;
+    color:#fff;
+}
+#userList li div:nth-child(1) {
+    width: 300px;
+    text-align: left;
+}
+
+.mic-indicator {
+    
+    min-width: 20px;
+    flex-basis: 20px;
+}
+
+.muted {
+    color: gray; /* Цвет текста для замученного пользователя */
+    text-decoration: line-through; /* Перечеркнутый текст для визуального эффекта */
+}
