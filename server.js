@@ -16,17 +16,26 @@ const io = new Server(server);
 app.use(express.static(path.join(__dirname, 'public')));
 
 const usersInRoom = {};
+const rooms = {};  // Список всех активных комнат
 
 io.on('connection', (socket) => {
     console.log('A user connected:', socket.id);
+    socket.emit('update-room-list', Object.keys(rooms));
 
     socket.on('join-room', (roomId, username) => {
         console.log(`User ${socket.id} (username: ${username}) joined room: ${roomId}`);
+        
         socket.join(roomId);
+
+        if (!rooms[roomId]) {
+            rooms[roomId] = roomId; // Добавляем комнату в список
+            io.emit('update-room-list', Object.keys(rooms)); // Отправляем обновленный список всем пользователям
+        }
 
         if (!usersInRoom[roomId]) {
             usersInRoom[roomId] = [];
         }
+        
         usersInRoom[roomId].push({ id: socket.id, username });
         io.to(roomId).emit('update-user-list', usersInRoom[roomId]);
 
@@ -73,6 +82,8 @@ io.on('connection', (socket) => {
             // Если в комнате больше нет пользователей, удаляем комнату
             if (usersInRoom[roomId].length === 0) {
                 delete usersInRoom[roomId];
+                delete rooms[roomId]; // Удаляем комнату из списка
+                io.emit('update-room-list', Object.keys(rooms)); // Обновляем список комнат для всех
             }
         }
 

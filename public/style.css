@@ -1,9 +1,17 @@
-body {
-    font-family: Arial, sans-serif;
+@font-face {
+    font-family: KdamThmorPro;
+    src: url('/font/KdamThmorPro-Regular.ttf');
+}
+body, h1, h2, p, div, ul {
+    font-family: KdamThmorPro, sans-serif;
     background-color: #363636;
     margin: 0;
-    padding: 20px;
-    text-align: center;
+    padding: 0;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
 }
 
 .container {
@@ -19,61 +27,76 @@ body {
 
 h1 {
     color: #ffffff;
+    border-bottom: 1px solid #cccccc;
+    padding: 1em;
+    font-size: 24px;
+}
+
+h2 {
+    padding: 1em;
+    color: #fff;
+    font-size: 20px;
 }
 
 #controls {
+    width: 100%;
     display: flex;
-    gap: 1em;
+    flex-direction: column;
+    gap: 2em;
     flex-wrap: wrap;
-    max-width: 660px;
-    justify-content: space-around;
+}
+
+input[type='text'] {
+    font-family: KdamThmorPro, sans-serif;
+    font-size: 16px;
+    width: 268px;
+    background-color: #494949;
+    color: #fff;
+    border: none;
+    outline: none;
+    padding: 0.5em;
+}
+
+.container-button button {
+    width: 100%;
+    padding: 0.5em;
+    background-color: #494949;
+    font-size: 16px;
+    color: #fff;
+    border: none;
+    outline: none;
+    cursor: pointer;
+    font-family: KdamThmorPro, sans-serif;
+    transition: all 0.3s ease;
+}
+
+.container-button:not(:disabled) button:hover {
+    background-color: #cccccc;
+}
+
+.container-input, .container-button {
     width: 100%;
 }
 
-button {
-    width: 100%;
-    flex-basis: 90px;
-    font-size: 16px;
-    height: 45.4px;
-    cursor: pointer;
-    border: none;
-    border-radius: 5px;
-    background-color: #007BFF;
-    color: white;
+.container-inputs, .container-buttons {
+    width: 600px;
+    display: flex;
+    gap: 2em;
+    justify-content: space-around;
 }
 
 button:disabled {
-    background-color: #cccccc;
+    background-color: #ccc;
     cursor: not-allowed;
 }
 
-#remoteAudios {
-    margin-top: 20px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
-
-#remoteAudios {
-    margin-top: 20px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
-
 .audio-container {
-    margin: 10px 0;
     display: none;
     align-items: center;
 }
 
-audio {
-    margin-right: 10px;
-}
-
 .username {
     font-weight: bold;
-    margin-right: 10px;
     color: #FFF;
 }
 
@@ -90,33 +113,61 @@ ul {
     margin-left: 10px;
 }
 
-#usernameInput {
-    padding: 0.3em;
-    width: 400px;
-    font-size: 24px;
-    border-radius: 5px;
-    border: 1px solid #FFF;
+#userList {
+    display: flex;
+    gap: 1em;
+    flex-wrap: wrap;
 }
 
 #userList li {
     display: flex;
-    justify-content: space-between;
-    padding: 1em;
-    border-bottom: 1px solid #FFF;
+    flex-direction: column;
     color:#fff;
+    width: 150px;
+    gap: 2em;
+    padding: 0.3em;
+    position: relative;
+    margin: 1em;
+    border-radius: 5px;
 }
-#userList li div:nth-child(1) {
-    width: 300px;
-    text-align: left;
+
+input[type='range'] {
+    width: 100%;
 }
 
 .mic-indicator {
-    
-    min-width: 20px;
-    flex-basis: 20px;
+    position: absolute;
+    inset: 0;
+    border-radius: 5px;
 }
 
 .muted {
     color: gray; /* Цвет текста для замученного пользователя */
     text-decoration: line-through; /* Перечеркнутый текст для визуального эффекта */
+}
+#roomList li div{
+    padding: 0.5em;
+    font-size: 16px;
+    color: #fff;
+}
+
+#roomList li button{
+    padding: 0.5em;
+    background-color: #494949;
+    font-size: 16px;
+    color: #fff;
+    border: none;
+    outline: none;
+    cursor: pointer;
+    font-family: KdamThmorPro, sans-serif;
+    transition: all 0.3s ease;
+}
+
+#roomList li {
+    display: flex;
+    justify-content: space-between;
+    border-bottom:1px solid #fff ;
+}
+.hide {
+    display: none;
 }

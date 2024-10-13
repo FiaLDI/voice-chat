@@ -9,18 +9,47 @@
 <body>
     <h1>Multi-User WebRTC Voice Chat</h1>
     <div class="container">
-        <div id="controls">
-            <input type="text" id="usernameInput" placeholder="Enter your name" />
-            <button id="joinCall">Join Call</button>
-            <button id="endCall" disabled>End Call</button>
-            <button id="muteButton">Mute</button>
+        <div class="control-container">
+            <h2>Enter the room</h2>
+            <div id="controls">
+                <div class="container-inputs">
+                    <div class="container-input">
+                        <input type="text" id="roomIdInput" placeholder="Enter room ID"/>
+                    </div>
+                    <div class="container-input">
+                        <input type="text" id="usernameInput" placeholder="Enter your name" />
+                    </div>
+                </div>
+                
+                <div class="container-buttons">
+                    <div class="container-button">
+                        <button id="joinCall">Join Room</button>
+                    </div>
+                    <div class="container-button">
+                        <button id="endCall" disabled>End Call</button>
+                    </div>
+                    <div class="container-button">
+                        <button id="muteButton" disabled>Mute</button>
+                    </div>
+                </div>
+                
+            </div>
         </div>
-        <ul id="userList"></ul> <!-- Список подключённых пользователей -->
-        <div id="remoteAudios"></div> <!-- Контейнер для аудио элементов -->
+        <div class="user-container">
+            <h2>List of connected users in the room (roomid)</h2>
+            <ul id="userList">
 
+            </ul>
+        </div>
+         <!-- Список подключённых пользователей -->
+         <!-- Контейнер для аудио элементов -->
+        <div class="room-container">
+            <h2>Available Rooms</h2>
+            <ul id="roomList"></ul>
+        </div>
     </div>
             
-
+    <div id="remoteAudios"></div>
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
     <script src="client.js"></script>

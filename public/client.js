@@ -3,7 +3,12 @@ const joinCallButton = document.getElementById('joinCall');
 const endCallButton = document.getElementById('endCall');
 const remoteAudios = document.getElementById('remoteAudios');
 const usernameInput = document.getElementById('usernameInput');
+const roomscontain = document.querySelector('.room-container')
 const userList = document.getElementById('userList'); // Элемент списка для пользователей
+const roomList = document.getElementById('roomList');
+const mutee = document.getElementById('muteButton')
+let currentRoomId = null;
+let isInRoom = false;
 let localStream;
 let peerConnections = {};
 let iceCandidatesQueue = {};
@@ -14,7 +19,7 @@ let audioContext;
 let denoiser;
 let analyser;
 let dataArray;
-let roomId = 'default-room';
+let roomId = '';
 
 const configuration = {
     iceServers: [
@@ -26,7 +31,7 @@ function initAudioAnalyzer(stream) {
     const source = audioContext.createMediaStreamSource(stream);
 
     analyser = audioContext.createAnalyser();
-    analyser.fftSize = 1024;
+    analyser.fftSize = 512;
 
     const bufferLength = analyser.frequencyBinCount;
     dataArray = new Uint8Array(bufferLength);
@@ -46,7 +51,7 @@ function analyzeMicActivity() {
     }
 
     const volume = Math.sqrt(sum / dataArray.length);
-    const sensitivityMultiplier = 2;
+    const sensitivityMultiplier = 5;
 
     // Отправляем уровень активности микрофона на сервер
     socket.emit('mic-activity', { volume: volume*sensitivityMultiplier, roomId });
@@ -61,13 +66,17 @@ function removeUserFromRoom(userId) {
         audioContainer.remove();
     }
 }
+
 function updateMicActivity(userId, volume) {
     const indicator = document.getElementById(`indicator-${userId}`);
     if (indicator) {
-        // Меняем цвет и размер индикатора в зависимости от громкости
-        const greenValue = Math.min(255, volume * 2); // Нормируем до 255
-        indicator.style.backgroundColor = `rgb(0, ${greenValue}, 0)`;
-        indicator.style.transform = `scale(${1 + volume / 200});`; // Увеличиваем размер
+        
+        const shadowBlur = Math.min(volume * 1, 50);  // Чем больше volume, тем больше размытие тени
+        const shadowOpacity = Math.min(volume / 150, 0.6); // Прозрачность тени зависит от громкости
+
+        // Применяем тень вокруг индикатора
+        indicator.style.boxShadow = `0 0 ${shadowBlur}px rgba(0, 255, 0, ${shadowOpacity})`;
+
     }
 }
 
@@ -143,26 +152,30 @@ async function processIceCandidates(peerId) {
 // Функция для обновления списка пользователей
 function updateUserList(users) {
     userList.innerHTML = ''; // Очищаем список
+    console.log('sssssssssssssss'.length)
     users.forEach(user => {
 
         if (user.id === socket.id) {
             return;
         }
         const li = document.createElement('li');
-
+        const info = document.createElement('div');
+        info.style.zIndex = "2"; 
+        info.style.padding = "1em"; 
         // Создаем индикатор активности
         const name = document.createElement('div');
-        name.textContent = user.username;
+        name.innerHTML = 'Username:'
+        const name2 = document.createElement('div');
+        name2.innerHTML = user.username;
         const indicator = document.createElement('div');
         indicator.className = 'mic-indicator';
         indicator.id = `indicator-${user.id}`; // Уникальный ID для индикатора
-        indicator.style.width = '20px';
-        indicator.style.height = '20px';
-        indicator.style.borderRadius = '50%';
-        indicator.style.backgroundColor = 'white'; // Начальный цвет
-        indicator.style.display = 'inline-block'; // Отображение в одной строке с именем
+        indicator.style.backgroundColor = '#494949'; // Начальный цвет
+        indicator.style.display = 'block'; // Отображение в одной строке с именем
         
         // Создаем регулятор громкости
+        const slidercontainer = document.createElement('div');
+        slidercontainer.innerHTML = 'Volume:'
         const volumeSlider = document.createElement('input');
         volumeSlider.type = 'range';
         volumeSlider.min = 0; // Минимальная громкость
@@ -177,8 +190,11 @@ function updateUserList(users) {
         };
 
         // Добавляем индикатор к элементу списка
-        li.appendChild(name);
-        li.appendChild(volumeSlider);
+        info.appendChild(name);
+        info.appendChild(name2)
+        slidercontainer.appendChild(volumeSlider);
+        info.appendChild(slidercontainer)
+        li.appendChild(info)
         li.appendChild(indicator)
         userList.appendChild(li);
     });
@@ -192,15 +208,25 @@ function adjustVolume(userId, volume) {
     }
 }
 
-joinCallButton.onclick = async () => {
+async function joinCalll() {
     const username = usernameInput.value;
+    roomId = roomIdInput.value;
+    if (!roomscontain.classList.contains('hide') && username) {
+        roomscontain.classList.add('hide')
+    }
+    
     if (!username) {
         alert("Please enter your name.");
         return;
     }
-
+    if (!roomId) {
+        alert("Please enter a room ID.");
+        return;
+    }
+    isInRoom = true;
     joinCallButton.disabled = true;
     endCallButton.disabled = false;
+    mutee.disabled = false;
 
     localStream = await navigator.mediaDevices.getUserMedia({
         audio: {
@@ -286,6 +312,11 @@ joinCallButton.onclick = async () => {
 
     // Передаем обработанный аудиопоток для других пользователей
     socket.emit('join-room', roomId, username);
+    currentRoomId = roomId;
+    const currentJoinButton = document.getElementById(`join-${roomId}`);
+    if (currentJoinButton) {
+        currentJoinButton.disabled = true;
+    }
 
     socket.on('update-user-list', (users) => {
         updateUserList(users); // Обновляем список пользователей на клиенте
@@ -322,7 +353,6 @@ joinCallButton.onclick = async () => {
     socket.on('update-mic-activity', (userId, volume) => {
         updateMicActivity(userId, volume);
     });
-
     // Логика для кнопки Mute
     const muteButton = document.getElementById('muteButton');
     let isMuted = false;
@@ -348,7 +378,7 @@ joinCallButton.onclick = async () => {
         }
 
         // Обновляем визуальный статус мутации
-        const userElement = document.getElementById(`indicator-${userId}`).previousElementSibling.previousElementSibling; // Получаем элемент пользователя по ID
+        const userElement = document.getElementById(`indicator-${userId}`).previousElementSibling.firstChild.nextSibling; // Получаем элемент пользователя по ID
         if (userElement) {
             userElement.classList.toggle('muted', isMuted);
             userElement.textContent = isMuted ? `${userElement.textContent.replace(' (Muted)', '')} (Muted)` : userElement.textContent.replace(' (Muted)', '');
@@ -356,9 +386,9 @@ joinCallButton.onclick = async () => {
     });
     // Запрос на получение списка пользователей
     socket.emit('request-user-list');
+}
 
-    
-};
+joinCallButton.onclick = joinCalll;
 
 // Когда сервер отправляет обновленный список пользователей
 socket.on('update-user-list', (users) => {
@@ -366,10 +396,48 @@ socket.on('update-user-list', (users) => {
     updateUserList(users);
 });
 
+socket.on('update-room-list', (rooms) => {
+    roomList.innerHTML = ''; // Очищаем список комнат
+
+    rooms.forEach((room) => {
+        const li = document.createElement('li');
+        
+
+        // Добавляем кнопку для подключения к комнате
+        const joinButton = document.createElement('button');
+        const textt =  document.createElement('div');
+        textt.textContent = `Name room: ${room}`;
+        joinButton.textContent = 'Join';
+        joinButton.id = `join-${room}`;
+
+        if (currentRoomId === room) {
+            joinButton.disabled = true;
+        }
+
+        joinButton.onclick = () => {
+            roomId = room;  // Устанавливаем ID выбранной комнаты
+            roomIdInput.value = room;
+            joinCalll();  // Подключаемся к выбранной комнате
+        };
+        li.appendChild(textt);
+        li.appendChild(joinButton);
+        roomList.appendChild(li);
+    });
+});
+
 endCallButton.onclick = () => {
     joinCallButton.disabled = false;
     endCallButton.disabled = true;
-
+    mutee.disabled = true;
+    currentRoomId = null;
+    isInRoom = false
+    if (roomscontain.classList.contains('hide')) {
+        roomscontain.classList.remove('hide')
+    }
+    const currentJoinButton = document.getElementById(`join-${roomId}`);
+    if (currentJoinButton) {
+        currentJoinButton.disabled = false;
+    }
     if (localStream) {
         localStream.getTracks().forEach(track => track.stop());
     }
@@ -493,5 +561,12 @@ socket.on('ice-candidate', async (data) => {
 usernameInput.addEventListener('input', () => {
     if (usernameInput.value.length > 15) {
         usernameInput.value = usernameInput.value.slice(0, 15); // Ограничиваем количество символов до 10
+    }
+});
+const roomidin = document.getElementById('roomIdInput')
+
+roomidin.addEventListener('input', () => {
+    if (roomidin.value.length > 25) {
+        roomidin.value = roomidin.value.slice(0, 25); // Ограничиваем количество символов до 10
     }
 });
