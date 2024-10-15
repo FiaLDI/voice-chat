@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h1>Multi-User WebRTC Voice Chat</h1>
+    <h1>Multi-User WebRTC Text/Voice Chat </h1>
     <div class="container">
         <div class="control-container">
             <h2>Enter the room</h2>
@@ -36,16 +36,30 @@
             </div>
         </div>
         <div class="user-container">
-            <h2>List of connected users in the room (roomid)</h2>
+            <h2 class="room-name"></h2>
             <ul id="userList">
 
             </ul>
         </div>
+        
          <!-- Список подключённых пользователей -->
          <!-- Контейнер для аудио элементов -->
         <div class="room-container">
             <h2>Available Rooms</h2>
             <ul id="roomList"></ul>
+        </div>
+        <h2>Chat</h2>
+        <div id="chatContainer">
+            
+            <div class="container-abs">
+                <div id="messages"></div>
+                <div class="send-message-container">
+                    <input type="text" id="chatInput" placeholder="Введите сообщение..." />
+                    <button id="sendChatButton"><img src="img/send.png" alt="" width="36px" height="36px"></button>
+                </div>
+            </div>
+            
+            
         </div>
     </div>
             
@@ -53,5 +67,6 @@
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
     <script src="client.js"></script>
+    <script src="chat.js"></script>
 </body>
 </html>

@@ -3,6 +3,7 @@ const https = require('https');
 const express = require('express');
 const { Server } = require('socket.io');
 const path = require('path');
+const helmet = require('helmet');
 
 const app = express();
 
@@ -14,9 +15,24 @@ const server = https.createServer({
 
 const io = new Server(server);
 app.use(express.static(path.join(__dirname, 'public')));
+app.use(
+    helmet({
+        contentSecurityPolicy: {
+            directives: {
+                defaultSrc: ["'none'"],
+                scriptSrc: ["'self'"],
+                styleSrc: ["'self'"],
+                imgSrc: ["'self'"],
+                connectSrc: ["'self'"],
+                objectSrc: ["'none'"],
+            },
+        },
+    })
+);
 
 const usersInRoom = {};
 const rooms = {};  // Список всех активных комнат
+const messages = JSON.parse(fs.readFileSync('messages.json', { encoding: 'utf8', flag: 'r' }));
 
 io.on('connection', (socket) => {
     console.log('A user connected:', socket.id);
@@ -31,7 +47,7 @@ io.on('connection', (socket) => {
             rooms[roomId] = roomId; // Добавляем комнату в список
             io.emit('update-room-list', Object.keys(rooms)); // Отправляем обновленный список всем пользователям
         }
-
+		
         if (!usersInRoom[roomId]) {
             usersInRoom[roomId] = [];
         }
@@ -93,6 +109,20 @@ io.on('connection', (socket) => {
         // Уведомляем остальных участников о том, что пользователь отключился
         socket.broadcast.to(roomId).emit('user-disconnected', socket.id);
     }
+    // Отправка всех ранее сохраненных сообщений клиенту
+    socket.emit('previous-messages', messages);
+
+    socket.on('chat-message', ({ roomId, message, username, time }) => {
+        // Сохраняем сообщение в массив
+        const chatMessage = { username, message, time};
+        messages.push(chatMessage);
+
+        // Сохраняем сообщения в файл JSON
+        fs.writeFileSync('messages.json', JSON.stringify(messages, null, 2));
+
+        // Отправляем сообщение всем участникам
+        io.emit('chat-message', chatMessage);
+    });
 });
 
 server.listen(3000, () => {
