@@ -29,27 +29,11 @@ const configuration = {
     ]
 };
 
-// Создание аудиоэлемента для каждого пользователя
-function createAudioElement(userId) {
-    const audioContainer = document.createElement('div');
-    audioContainer.id = `audio-${userId}`;
-
-    const audioElement = document.createElement('audio');
-    audioElement.autoplay = true;
-    audioElement.controls = false;
-    audioElement.id = `audio-${userId}-stream`;
-
-    audioContainer.appendChild(audioElement);
-    remoteAudios.appendChild(audioContainer);
-}
-
-
 // Регулировка громкости
 function adjustVolume(userId, volume) {
     const audioElement = document.querySelector(`#audio-${userId} audio` );
     if (audioElement) {
         audioElement.volume = volume; // Устанавливаем громкость аудиоэлемента
-        console.log(`Volume for user ${userId} set to ${volume}`);
     }
 }
 
@@ -96,7 +80,7 @@ function updateUserList(users) {
         volumeSlider.min = 0; // Минимальная громкость
         volumeSlider.max = 1; // Максимальная громкость
         volumeSlider.step = 0.01; // Шаг изменения громкости
-        volumeSlider.value = userVolume[user.id] || 1; // Устанавливаем громкость по умолчанию
+        volumeSlider.value = userVolume[user.id] || 0.5; // Устанавливаем громкость по умолчанию
 
         // Обработчик события изменения громкости
         volumeSlider.oninput = () => {
@@ -142,86 +126,95 @@ async function joinCalll() {
         }
     });
 
-    // Создаем аудиоконтекст для обработки потока
     const audioContext = new AudioContext();
     const sourceNode = audioContext.createMediaStreamSource(localStream);
-
-    // Создаем анализатор
+    
+    // Создание анализатора для частотного анализа
     const analyser = audioContext.createAnalyser();
-    analyser.fftSize = 4096; // Увеличиваем размер FFT для более точного анализа
+    analyser.fftSize = 2048;
     const bufferLength = analyser.frequencyBinCount;
     const dataArray = new Uint8Array(bufferLength);
-
-    sourceNode.connect(analyser);
-
-    const gainNode = audioContext.createGain(); // Используем узел для изменения громкости
-    gainNode.gain.value = 1; // Устанавливаем начальное значение громкости
-
-    analyser.connect(gainNode);
-
-    // Фильтр низких частот для удаления гула и вибраций
-    const highpassFilter = audioContext.createBiquadFilter();
-    highpassFilter.type = 'highpass';
-    highpassFilter.frequency.value = 1000; // Убираем звуки ниже 150 Гц
-
-    // Фильтр полосы пропускания для голосовых частот (убираем шумы клавиатуры)
-    const bandpassFilter = audioContext.createBiquadFilter();
-    bandpassFilter.type = 'bandpass';
-    bandpassFilter.frequency.value = 1000; // Пропускаем средние частоты
-    bandpassFilter.Q.value = 2.0;
-
-    // Фильтр высоких частот для подавления белого шума
-    const lowpassFilter = audioContext.createBiquadFilter();
-    lowpassFilter.frequency.setValueAtTime(1000, audioContext.currentTime); // Частота среза
-    lowpassFilter.Q.setValueAtTime(1, audioContext.currentTime); // Добротность фильтра
-
-    // Компрессор для динамической регулировки громкости (снижает громкость слишком громких и слишком тихих звуков)
+    
+    // Создание многополосных фильтров для человеческой речи
+    const bandpassFilterLow = audioContext.createBiquadFilter();
+    bandpassFilterLow.type = 'bandpass';
+    bandpassFilterLow.frequency.value = 1000; // Низкая частота для человеческой речи
+    bandpassFilterLow.Q.value = 10.0; // Увеличенный Q-фактор
+    
+    const bandpassFilterHigh = audioContext.createBiquadFilter();
+    bandpassFilterHigh.type = 'bandpass';
+    bandpassFilterHigh.frequency.value = 3000; // Высокая частота для человеческой речи
+    bandpassFilterHigh.Q.value = 10.0; // Увеличенный Q-фактор
+    
+    // Добавление нескольких узких фильтров для подавления механического шума
+    const noiseNotchFilters = [];
+    const noiseFrequencies = [1500, 2000, 2500, 4000, 4500]; // Частоты для подавления
+    
+    for (const freq of noiseFrequencies) {
+        const notchFilter = audioContext.createBiquadFilter();
+        notchFilter.type = 'notch';
+        notchFilter.frequency.value = freq;
+        notchFilter.Q.value = 80; // Узкий Q для жесткой фильтрации
+        noiseNotchFilters.push(notchFilter);
+    }
+    
+    // Создание компрессора для управления динамическим диапазоном
     const compressor = audioContext.createDynamicsCompressor();
-    compressor.threshold.setValueAtTime(-70, audioContext.currentTime); // Порог срабатывания
-    compressor.knee.setValueAtTime(40, audioContext.currentTime); // Мягкость перехода
-    compressor.ratio.setValueAtTime(20, audioContext.currentTime); // Степень компрессии
-    compressor.attack.setValueAtTime(0, audioContext.currentTime); // Скорость срабатывания
-    compressor.release.setValueAtTime(0.25, audioContext.currentTime); // Время восстановления
-
-    // Шумоподавляющий процессор с адаптивным порогом
+    compressor.threshold.setValueAtTime(-40, audioContext.currentTime);
+    compressor.knee.setValueAtTime(30, audioContext.currentTime);
+    compressor.ratio.setValueAtTime(8, audioContext.currentTime); // Более высокий коэффициент
+    compressor.attack.setValueAtTime(0.001, audioContext.currentTime);
+    compressor.release.setValueAtTime(0.1, audioContext.currentTime);
+    
+    // Обработка аудио с помощью скриптового процессора
     const noiseGate = audioContext.createScriptProcessor(4096, 1, 1);
     noiseGate.onaudioprocess = (audioProcessingEvent) => {
         const inputBuffer = audioProcessingEvent.inputBuffer;
         const outputBuffer = audioProcessingEvent.outputBuffer;
-
+    
         for (let channel = 0; channel < inputBuffer.numberOfChannels; channel++) {
             const inputData = inputBuffer.getChannelData(channel);
             const outputData = outputBuffer.getChannelData(channel);
-
+    
+            // Анализ аудиоданных для обнаружения активности голоса
+            analyser.getByteFrequencyData(dataArray);
+            const averageVolume = dataArray.reduce((sum, value) => sum + value) / dataArray.length;
+    
             for (let sample = 0; sample < inputBuffer.length; sample++) {
-                // Анализируем уровень громкости
                 const volume = Math.abs(inputData[sample]);
-                
-                // Подавляем звуки, которые слишком тихие
-                if (volume < 0.8) {  // Порог адаптивного шумоподавления
-                    outputData[sample] = 0;
+    
+                // Обнаружение активности голоса и подавление шума
+                if (volume < averageVolume * 0.1) { // Более жесткое подавление
+                    outputData[sample] = 0; // Подавить звуки, не относящиеся к речи
                 } else {
-                    outputData[sample] = inputData[sample];
+                    outputData[sample] = inputData[sample]; // Позволить человеческую речь
                 }
             }
         }
     };
-
-    // Подключаем фильтры и процессоры последовательно
-    gainNode.connect(highpassFilter);
-    highpassFilter.connect(bandpassFilter);
-    bandpassFilter.connect(lowpassFilter);
-    lowpassFilter.connect(noiseGate);
+    
+    // Соединение узлов в нужном порядке
+    sourceNode.connect(bandpassFilterLow);
+    bandpassFilterLow.connect(bandpassFilterHigh);
+    
+    // Подключение всех узких фильтров
+    let lastFilter = bandpassFilterHigh;
+    for (const notchFilter of noiseNotchFilters) {
+        lastFilter.connect(notchFilter);
+        lastFilter = notchFilter;
+    }
+    
+    lastFilter.connect(noiseGate);
     noiseGate.connect(compressor);
-
-    // Создаем поток для отправки через WebRTC
+    
+    // Создание выходного потока для обработанного аудио
     const destination = audioContext.createMediaStreamDestination();
     compressor.connect(destination);
-
-    // Используем обработанный поток
+    
+    // Использование обработанного потока
     const processedStream = destination.stream;
 
-    analyzeMicActivity(analyser, gainNode, dataArray);
+    initAudioAnalyzer(localStream);
 
     peerConnections = {};
     iceCandidatesQueue = {};
@@ -309,7 +302,22 @@ async function joinCalll() {
     socket.emit('request-user-list');
 }
 
-function analyzeMicActivity(analyser, gainNode, dataArray) {
+function initAudioAnalyzer(stream) {
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const source = audioContext.createMediaStreamSource(stream);
+
+    analyser = audioContext.createAnalyser();
+    analyser.fftSize = 512;
+
+    const bufferLength = analyser.frequencyBinCount;
+    dataArray = new Uint8Array(bufferLength);
+
+    source.connect(analyser);
+
+    // Запускаем анализ активности микрофона
+    analyzeMicActivity();
+}
+function analyzeMicActivity() {
     analyser.getByteTimeDomainData(dataArray);
 
     let sum = 0;
@@ -321,44 +329,13 @@ function analyzeMicActivity(analyser, gainNode, dataArray) {
     const volume = Math.sqrt(sum / dataArray.length);
     const sensitivityMultiplier = 5;
 
-    // Если громкость превышает определённый порог, уменьшаем громкость
-    if (volume * sensitivityMultiplier > 0.3) { // Порог для нажатий клавиш и щелчков
-        gainNode.gain.value = 0.5; // Уменьшаем громкость, когда обнаружены щелчки
-    } else {
-        gainNode.gain.value = 1; // Восстанавливаем нормальную громкость
-    }
-
     // Отправляем уровень активности микрофона на сервер
-    socket.emit('mic-activity', { volume: volume * sensitivityMultiplier, roomId });
+    socket.emit('mic-activity', { volume: volume*sensitivityMultiplier, roomId });
 
     // Повторяем анализ через небольшой интервал
-    requestAnimationFrame(() => analyzeMicActivity(analyser, gainNode, dataArray));
+    requestAnimationFrame(analyzeMicActivity);
 }
-function analyzeMicActivity(analyser, gainNode, dataArray) {
-    analyser.getByteTimeDomainData(dataArray);
 
-    let sum = 0;
-    for (let i = 0; i < dataArray.length; i++) {
-        const value = dataArray[i] - 128;
-        sum += (value * value);
-    }
-
-    const volume = Math.sqrt(sum / dataArray.length);
-    const sensitivityMultiplier = 5;
-
-    // Если громкость превышает определённый порог, уменьшаем громкость
-    if (volume * sensitivityMultiplier > 0.05) { // Порог для нажатий клавиш и щелчков
-        gainNode.gain.value = 0.5; // Уменьшаем громкость, когда обнаружены щелчки
-    } else {
-        gainNode.gain.value = 1; // Восстанавливаем нормальную громкость
-    }
-
-    // Отправляем уровень активности микрофона на сервер
-    socket.emit('mic-activity', { volume: volume * sensitivityMultiplier, roomId });
-
-    // Повторяем анализ через небольшой интервал
-    requestAnimationFrame(() => analyzeMicActivity(analyser, gainNode, dataArray));
-}
 
 function updateMicActivity(userId, volume) {
     const indicator = document.getElementById(`indicator-${userId}`);
@@ -397,6 +374,7 @@ function createPeerConnection(peerId, username) {
             audioElement.srcObject = event.streams[0];
             audioElement.autoplay = true;
             audioElement.controls = true;
+            audioElement.volume = 0.5; 
 
             const usernameLabel = document.createElement('span');
             usernameLabel.className = 'username';
